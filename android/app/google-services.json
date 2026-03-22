@@ -12,7 +12,20 @@
           "package_name": "com.example.carmaintenance"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "478297114399-9ulgqdvb51m4hnro7dhhjahf96mji7ko.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.carmaintenance",
+            "certificate_hash": "7fe47474e65f67c32dc18d2d9d3c4bf5dd7c2167"
+          }
+        },
+        {
+          "client_id": "478297114399-arvklifpuq4o78ak6cdqfc5tvjrjmsih.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyADVRJslJZssJk_8cxguqcaVfwAAoLB9pY"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "478297114399-arvklifpuq4o78ak6cdqfc5tvjrjmsih.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "478297114399-nu6lgbt41cgfi8nadvuhq1oai38hhipu.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.carmaintenance"
+              }
+            }
+          ]
         }
       }
     }

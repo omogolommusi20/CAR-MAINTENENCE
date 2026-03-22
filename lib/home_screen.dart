@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'tutorials.dart';
+import 'maintenance_schedule.dart';
 
 class HomeScreen extends StatefulWidget {
   final String userName;
@@ -22,98 +25,50 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  int _currentKm = 0;
+  bool _kmSet = false;
+  final _kmController = TextEditingController();
 
-  final List<Map<String, dynamic>> _maintenanceItems = [
-    {
-      'task': 'Oil Filter Replacement',
-      'due': '500 km',
-      'status': 'due_soon',
-      'icon': Icons.opacity_rounded,
-    },
-    {
-      'task': 'Brake Pad Check',
-      'due': '1,200 km',
-      'status': 'ok',
-      'icon': Icons.album_rounded,
-    },
-    {
-      'task': 'Spark Plug Replacement',
-      'due': '3,000 km',
-      'status': 'ok',
-      'icon': Icons.electric_bolt_rounded,
-    },
-    {
-      'task': 'Tyre Rotation',
-      'due': 'Overdue',
-      'status': 'overdue',
-      'icon': Icons.tire_repair_rounded,
-    },
-    {
-      'task': 'Air Filter Check',
-      'due': '2,500 km',
-      'status': 'ok',
-      'icon': Icons.air_rounded,
-    },
-  ];
+  @override
+  void dispose() {
+    _kmController.dispose();
+    super.dispose();
+  }
 
-  final List<Map<String, dynamic>> _tutorials = [
-    {
-      'title': 'Oil Change Guide',
-      'duration': '15 min',
-      'level': 'Beginner',
-      'ar': true,
-      'icon': Icons.opacity_rounded,
-    },
-    {
-      'title': 'Brake Pad Replacement',
-      'duration': '30 min',
-      'level': 'Intermediate',
-      'ar': true,
-      'icon': Icons.album_rounded,
-    },
-    {
-      'title': 'Spark Plug Change',
-      'duration': '20 min',
-      'level': 'Beginner',
-      'ar': false,
-      'icon': Icons.electric_bolt_rounded,
-    },
-    {
-      'title': 'Air Filter Replacement',
-      'duration': '10 min',
-      'level': 'Beginner',
-      'ar': false,
-      'icon': Icons.air_rounded,
-    },
-    {
-      'title': 'Tyre Change',
-      'duration': '25 min',
-      'level': 'Beginner',
-      'ar': true,
-      'icon': Icons.tire_repair_rounded,
-    },
-  ];
+  String _formatKm(int km) {
+    return km.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]},',
+    );
+  }
 
-  final List<Map<String, dynamic>> _maintenanceLog = [
-    {
-      'task': 'Oil Change',
-      'date': '12 Jan 2025',
-      'cost': 'P 250',
-      'parts': 'Oil filter, Engine oil',
-    },
-    {
-      'task': 'Tyre Rotation',
-      'date': '05 Nov 2024',
-      'cost': 'P 80',
-      'parts': 'None',
-    },
-    {
-      'task': 'Brake Fluid Top-up',
-      'date': '20 Sep 2024',
-      'cost': 'P 60',
-      'parts': 'Brake fluid',
-    },
-  ];
+  String _getStatus(int intervalKm, int lastDoneKm) {
+    final remaining = (lastDoneKm + intervalKm) - _currentKm;
+    if (remaining <= 0) return 'overdue';
+    if (remaining <= 1000) return 'due_soon';
+    return 'ok';
+  }
+
+  int _getRemaining(int intervalKm, int lastDoneKm) {
+    return (lastDoneKm + intervalKm) - _currentKm;
+  }
+
+  IconData _getIcon(String icon) {
+    switch (icon) {
+      case 'oil':
+        return Icons.opacity_rounded;
+      case 'brake':
+        return Icons.album_rounded;
+      case 'air':
+        return Icons.air_rounded;
+      case 'spark':
+        return Icons.electric_bolt_rounded;
+      case 'tyre':
+        return Icons.tire_repair_rounded;
+      default:
+        return Icons.build_outlined;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,8 +79,11 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _buildDashboard(),
           _buildSoundDiagnostics(),
-          _buildTutorials(),
-          _buildMaintenanceLog(),
+          TutorialsScreen(carMake: widget.carMake, carModel: widget.carModel),
+          MaintenanceScheduleScreen(
+            carMake: widget.carMake,
+            carModel: widget.carModel,
+          ),
           _buildProfile(),
         ],
       ),
@@ -138,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {'icon': Icons.dashboard_rounded, 'label': 'Home'},
       {'icon': Icons.mic_rounded, 'label': 'Diagnose'},
       {'icon': Icons.play_circle_outline_rounded, 'label': 'Tutorials'},
-      {'icon': Icons.history_rounded, 'label': 'History'},
+      {'icon': Icons.build_circle_outlined, 'label': 'Schedule'},
       {'icon': Icons.person_outline_rounded, 'label': 'Profile'},
     ];
     return Container(
@@ -207,8 +165,8 @@ class _HomeScreenState extends State<HomeScreen> {
             _buildGreeting(),
             const SizedBox(height: 20),
             _buildCarCard(),
-            const SizedBox(height: 20),
-            _buildHealthStatus(),
+            const SizedBox(height: 16),
+            _buildMileageInput(),
             const SizedBox(height: 20),
             _buildQuickActions(),
             const SizedBox(height: 20),
@@ -244,35 +202,19 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        Stack(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF16161F),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-              ),
-              child: const Icon(
-                Icons.notifications_outlined,
-                color: Colors.white54,
-                size: 20,
-              ),
-            ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFF6B2B),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-          ],
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFF16161F),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: const Icon(
+            Icons.notifications_outlined,
+            color: Colors.white54,
+            size: 20,
+          ),
         ),
       ],
     );
@@ -321,26 +263,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Row(
-                  children: [
-                    _engineBadge(widget.engineType),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Last service: Jan 2025',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.4),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
+                _engineBadge(widget.engineType),
               ],
             ),
-          ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: Colors.white30,
-            size: 20,
           ),
         ],
       ),
@@ -372,90 +297,292 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHealthStatus() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Vehicle Health',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
+  Widget _buildMileageInput() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF16161F),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFE8C547).withValues(alpha: 0.15),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.speed_rounded, color: Color(0xFFE8C547), size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: _kmController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                hintText:
+                    _kmSet
+                        ? 'Current: ${_formatKm(_currentKm)} km'
+                        : 'Enter current mileage (km)',
+                hintStyle: TextStyle(
+                  color:
+                      _kmSet
+                          ? const Color(0xFF4CAF50)
+                          : Colors.white.withValues(alpha: 0.25),
+                  fontSize: 12,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            _healthCard(
-              'Engine',
-              '85%',
-              Icons.settings_rounded,
-              const Color(0xFF4CAF50),
+          GestureDetector(
+            onTap: () {
+              final km = int.tryParse(_kmController.text.trim());
+              if (km != null && km >= 0) {
+                setState(() {
+                  _currentKm = km;
+                  _kmSet = true;
+                  _kmController.clear();
+                });
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8C547),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Set',
+                style: TextStyle(
+                  color: Color(0xFF0A0A0F),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
             ),
-            const SizedBox(width: 10),
-            _healthCard(
-              'Brakes',
-              '72%',
-              Icons.album_rounded,
-              const Color(0xFFE8C547),
-            ),
-            const SizedBox(width: 10),
-            _healthCard(
-              'Tyres',
-              '60%',
-              Icons.tire_repair_rounded,
-              const Color(0xFFFF6B2B),
-            ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _healthCard(String label, String percent, IconData icon, Color color) {
-    final value = int.parse(percent.replaceAll('%', '')) / 100;
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF16161F),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-        ),
-        child: Column(
+  Widget _buildUpcomingMaintenance() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(height: 8),
-            Text(
-              percent,
+            const Text(
+              'Upcoming Maintenance',
               style: TextStyle(
-                color: color,
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: value,
-                backgroundColor: Colors.white.withValues(alpha: 0.08),
-                valueColor: AlwaysStoppedAnimation<Color>(color),
-                minHeight: 4,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 11,
+            GestureDetector(
+              onTap: () => setState(() => _currentIndex = 3),
+              child: const Text(
+                'See all',
+                style: TextStyle(
+                  color: Color(0xFFE8C547),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+        if (!_kmSet)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF16161F),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            ),
+            child: Center(
+              child: Text(
+                'Enter your current mileage above\nto see upcoming maintenance',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.35),
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          )
+        else
+          StreamBuilder<QuerySnapshot>(
+            stream:
+                FirebaseFirestore.instance
+                    .collection('maintenance_schedule')
+                    .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(color: Color(0xFFE8C547)),
+                  ),
+                );
+              }
+              if (snapshot.hasError) {
+                return Text(
+                  'Error loading maintenance',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                );
+              }
+
+              final allDocs = snapshot.data?.docs ?? [];
+
+              // Filter for user's car only
+              final docs =
+                  allDocs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final make =
+                        (data['carMake'] ?? '').toString().toLowerCase();
+                    final model =
+                        (data['carModel'] ?? '').toString().toLowerCase();
+                    return make == widget.carMake.toLowerCase() &&
+                        model == widget.carModel.toLowerCase();
+                  }).toList();
+
+              if (docs.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF16161F),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.06),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'No schedule found for\n${widget.carMake} ${widget.carModel}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              // Sort by most urgent first
+              docs.sort((a, b) {
+                final aData = a.data() as Map<String, dynamic>;
+                final bData = b.data() as Map<String, dynamic>;
+                final aR = _getRemaining(
+                  (aData['intervalKm'] ?? 5000) as int,
+                  (aData['lastDoneKm'] ?? 0) as int,
+                );
+                final bR = _getRemaining(
+                  (bData['intervalKm'] ?? 5000) as int,
+                  (bData['lastDoneKm'] ?? 0) as int,
+                );
+                return aR.compareTo(bR);
+              });
+
+              return Column(
+                children:
+                    docs.take(3).map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final task = data['task'] ?? 'Maintenance';
+                      final intervalKm = (data['intervalKm'] ?? 5000) as int;
+                      final lastDoneKm = (data['lastDoneKm'] ?? 0) as int;
+                      final status = _getStatus(intervalKm, lastDoneKm);
+                      final remaining = _getRemaining(intervalKm, lastDoneKm);
+                      final nextDueKm = lastDoneKm + intervalKm;
+
+                      final statusColors = {
+                        'ok': Colors.white30,
+                        'due_soon': const Color(0xFFE8C547),
+                        'overdue': const Color(0xFFFF6B2B),
+                      };
+                      final color = statusColors[status] ?? Colors.white30;
+                      final iconData = _getIcon(data['icon'] ?? '');
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF16161F),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: color.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(iconData, color: color, size: 18),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    task,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Next due at: ${_formatKm(nextDueKm)} km',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.35,
+                                      ),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                status == 'overdue'
+                                    ? 'Overdue'
+                                    : status == 'due_soon'
+                                    ? 'Due Soon'
+                                    : '${_formatKm(remaining)} km',
+                                style: TextStyle(
+                                  color: color,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+              );
+            },
+          ),
+      ],
     );
   }
 
@@ -468,22 +595,22 @@ class _HomeScreenState extends State<HomeScreen> {
         'tab': 1,
       },
       {
-        'label': 'AR\nGuide',
-        'icon': Icons.view_in_ar_rounded,
+        'label': 'Tutorials',
+        'icon': Icons.play_circle_outline_rounded,
         'color': const Color(0xFF2196F3),
         'tab': 2,
       },
       {
-        'label': 'Find\nParts',
-        'icon': Icons.location_on_rounded,
+        'label': 'Schedule',
+        'icon': Icons.build_circle_outlined,
         'color': const Color(0xFF4CAF50),
-        'tab': 4,
+        'tab': 3,
       },
       {
-        'label': 'Schedule',
-        'icon': Icons.calendar_month_rounded,
+        'label': 'Profile',
+        'icon': Icons.person_outline_rounded,
         'color': const Color(0xFFFF6B2B),
-        'tab': 3,
+        'tab': 4,
       },
     ];
     return Column(
@@ -543,97 +670,6 @@ class _HomeScreenState extends State<HomeScreen> {
               }).toList(),
         ),
       ],
-    );
-  }
-
-  Widget _buildUpcomingMaintenance() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Upcoming Maintenance',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            GestureDetector(
-              onTap: () => setState(() => _currentIndex = 3),
-              child: const Text(
-                'See all',
-                style: TextStyle(
-                  color: Color(0xFFE8C547),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ..._maintenanceItems.take(3).map((item) => _maintenanceTile(item)),
-      ],
-    );
-  }
-
-  Widget _maintenanceTile(Map<String, dynamic> item) {
-    final statusColors = {
-      'ok': Colors.white30,
-      'due_soon': const Color(0xFFE8C547),
-      'overdue': const Color(0xFFFF6B2B),
-    };
-    final color = statusColors[item['status']] ?? Colors.white30;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF16161F),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(item['icon'] as IconData, color: color, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              item['task'] as String,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              item['due'] as String,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -759,256 +795,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text(
                       f['fault'] as String,
                       style: const TextStyle(color: Colors.white, fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTutorials() {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            const Text(
-              'Tutorials',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            Text(
-              'Step-by-step guides for your ${widget.carMake}',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.4),
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView.builder(
-                itemCount: _tutorials.length,
-                itemBuilder: (_, i) {
-                  final t = _tutorials[i];
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF16161F),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.06),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFFE8C547,
-                            ).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            t['icon'] as IconData,
-                            color: const Color(0xFFE8C547),
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                t['title'] as String,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Text(
-                                    t['duration'] as String,
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.4,
-                                      ),
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '•',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    t['level'] as String,
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.4,
-                                      ),
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                  if (t['ar'] == true) ...[
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(
-                                          0xFF2196F3,
-                                        ).withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(5),
-                                      ),
-                                      child: const Text(
-                                        'AR',
-                                        style: TextStyle(
-                                          color: Color(0xFF2196F3),
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.play_circle_rounded,
-                          color: Color(0xFFE8C547),
-                          size: 28,
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMaintenanceLog() {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            const Text(
-              'Maintenance Log',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            Text(
-              'Full service history',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.4),
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Upcoming',
-              style: TextStyle(
-                color: Color(0xFFE8C547),
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ..._maintenanceItems.map((item) => _maintenanceTile(item)),
-            const SizedBox(height: 16),
-            const Text(
-              'Past Services',
-              style: TextStyle(
-                color: Color(0xFFE8C547),
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ..._maintenanceLog.map(
-              (log) => Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF16161F),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.06),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            log['task'] as String,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            log['parts'] as String,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.4),
-                              fontSize: 11,
-                            ),
-                          ),
-                          Text(
-                            log['date'] as String,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.3),
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      log['cost'] as String,
-                      style: const TextStyle(
-                        color: Color(0xFF4CAF50),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
                     ),
                   ],
                 ),
