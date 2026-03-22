@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "478297114399",
+    "project_id": "carrmaintenance-41e83",
+    "storage_bucket": "carrmaintenance-41e83.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:478297114399:android:c88e19334d72d918df922a",
+        "android_client_info": {
+          "package_name": "com.example.carmaintenance"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADVRJslJZssJk_8cxguqcaVfwAAoLB9pY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

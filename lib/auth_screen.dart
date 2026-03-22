@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'home_screen.dart';
 
 class CarMaintenanceApp extends StatelessWidget {
@@ -32,13 +33,15 @@ class _AuthScreenState extends State<AuthScreen>
     with SingleTickerProviderStateMixin {
   bool _isLogin = true;
   bool _isLoading = false;
+  bool _obscurePassword = true;
   String? _selectedEngineType;
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
 
-  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   final _carMakeController = TextEditingController();
   final _carModelController = TextEditingController();
@@ -65,7 +68,8 @@ class _AuthScreenState extends State<AuthScreen>
   @override
   void dispose() {
     _animController.dispose();
-    _emailController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
     _nameController.dispose();
     _carMakeController.dispose();
     _carModelController.dispose();
@@ -82,34 +86,101 @@ class _AuthScreenState extends State<AuthScreen>
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_isLogin && _selectedEngineType == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select an engine type'),
-          backgroundColor: Color(0xFFFF6B2B),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _showSnack('Please select an engine type', const Color(0xFFFF6B2B));
       return;
     }
+
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    setState(() => _isLoading = false);
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder:
-              (_) => HomeScreen(
-                userName: _isLogin ? 'User' : _nameController.text,
-                carMake: _isLogin ? 'Toyota' : _carMakeController.text,
-                carModel: _isLogin ? 'Corolla' : _carModelController.text,
-                carYear: _isLogin ? '2020' : _carYearController.text,
-                engineType:
-                    _isLogin ? 'Petrol' : (_selectedEngineType ?? 'Petrol'),
-              ),
-        ),
-      );
+
+    try {
+      if (_isLogin) {
+        await _login();
+      } else {
+        await _register();
+      }
+    } catch (e) {
+      _showSnack('Error: ${e.toString()}', const Color(0xFFFF6B2B));
     }
+
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _login() async {
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // Check LOGIN collection for matching username and password
+    final query =
+        await FirebaseFirestore.instance
+            .collection('LOGIN')
+            .where('username', isEqualTo: username)
+            .where('password', isEqualTo: password)
+            .get();
+
+    if (query.docs.isEmpty) {
+      _showSnack('Invalid username or password', const Color(0xFFFF6B2B));
+      return;
+    }
+
+    final data = query.docs.first.data();
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => HomeScreen(
+              userName: data['username'] ?? username,
+              carMake: data['carMake'] ?? 'Toyota',
+              carModel: data['carModel'] ?? 'Corolla',
+              carYear: data['carYear'] ?? '2020',
+              engineType: data['engineType'] ?? 'Petrol',
+            ),
+      ),
+    );
+  }
+
+  Future<void> _register() async {
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // Check if username already exists
+    final existing =
+        await FirebaseFirestore.instance
+            .collection('LOGIN')
+            .where('username', isEqualTo: username)
+            .get();
+
+    if (existing.docs.isNotEmpty) {
+      _showSnack('Username already taken', const Color(0xFFFF6B2B));
+      return;
+    }
+
+    // Save to LOGIN collection
+    await FirebaseFirestore.instance.collection('LOGIN').add({
+      'username': username,
+      'password': password,
+      'name': _nameController.text.trim(),
+      'carMake': _carMakeController.text.trim(),
+      'carModel': _carModelController.text.trim(),
+      'carYear': _carYearController.text.trim(),
+      'engineType': _selectedEngineType,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    _showSnack('Account created! Please sign in.', const Color(0xFF4CAF50));
+    _toggleMode();
+  }
+
+  void _showSnack(String message, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -299,11 +370,20 @@ class _AuthScreenState extends State<AuthScreen>
             const SizedBox(height: 12),
           ],
           _buildField(
-            controller: _emailController,
-            label: 'Email Address',
-            icon: Icons.mail_outline_rounded,
-            keyboardType: TextInputType.emailAddress,
-            validator: (v) => !v!.contains('@') ? 'Enter a valid email' : null,
+            controller: _usernameController,
+            label: 'Username',
+            icon: Icons.alternate_email_rounded,
+            validator: (v) => v!.isEmpty ? 'Enter a username' : null,
+          ),
+          const SizedBox(height: 12),
+          _buildField(
+            controller: _passwordController,
+            label: 'Password',
+            icon: Icons.lock_outline_rounded,
+            obscure: _obscurePassword,
+            toggleObscure:
+                () => setState(() => _obscurePassword = !_obscurePassword),
+            validator: (v) => v!.length < 4 ? 'Minimum 4 characters' : null,
           ),
           if (!_isLogin) ...[
             const SizedBox(height: 20),
@@ -448,11 +528,14 @@ class _AuthScreenState extends State<AuthScreen>
     required String label,
     required IconData icon,
     TextInputType? keyboardType,
+    bool obscure = false,
+    VoidCallback? toggleObscure,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      obscureText: obscure,
       validator: validator,
       style: const TextStyle(color: Colors.white, fontSize: 14),
       decoration: InputDecoration(
@@ -462,6 +545,19 @@ class _AuthScreenState extends State<AuthScreen>
           fontSize: 13,
         ),
         prefixIcon: Icon(icon, color: Colors.white30, size: 18),
+        suffixIcon:
+            toggleObscure != null
+                ? GestureDetector(
+                  onTap: toggleObscure,
+                  child: Icon(
+                    obscure
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: Colors.white30,
+                    size: 18,
+                  ),
+                )
+                : null,
         filled: true,
         fillColor: const Color(0xFF16161F),
         enabledBorder: OutlineInputBorder(
