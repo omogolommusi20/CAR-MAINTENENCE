@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'tutorials.dart';
 import 'maintenance_schedule.dart';
+import 'suppliers_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String userName;
@@ -37,9 +38,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _formatKm(int km) {
     return km.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (m) => '${m[1]},',
-    );
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]},',
+        );
   }
 
   String _getStatus(int intervalKm, int lastDoneKm) {
@@ -84,6 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
             carMake: widget.carMake,
             carModel: widget.carModel,
           ),
+          const SuppliersScreen(),
           _buildProfile(),
         ],
       ),
@@ -97,6 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {'icon': Icons.mic_rounded, 'label': 'Diagnose'},
       {'icon': Icons.play_circle_outline_rounded, 'label': 'Tutorials'},
       {'icon': Icons.build_circle_outlined, 'label': 'Schedule'},
+      {'icon': Icons.store_outlined, 'label': 'Suppliers'},
       {'icon': Icons.person_outline_rounded, 'label': 'Profile'},
     ];
     return Container(
@@ -110,44 +113,39 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SizedBox(
           height: 60,
           child: Row(
-            children:
-                items.asMap().entries.map((e) {
-                  final i = e.key;
-                  final item = e.value;
-                  final active = _currentIndex == i;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _currentIndex = i),
-                      behavior: HitTestBehavior.opaque,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            item['icon'] as IconData,
-                            size: 22,
-                            color:
-                                active
-                                    ? const Color(0xFFE8C547)
-                                    : Colors.white30,
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            item['label'] as String,
-                            style: TextStyle(
-                              fontSize: 10,
-                              color:
-                                  active
-                                      ? const Color(0xFFE8C547)
-                                      : Colors.white30,
-                              fontWeight:
-                                  active ? FontWeight.w700 : FontWeight.w400,
-                            ),
-                          ),
-                        ],
+            children: items.asMap().entries.map((e) {
+              final i = e.key;
+              final item = e.value;
+              final active = _currentIndex == i;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _currentIndex = i),
+                  behavior: HitTestBehavior.opaque,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        item['icon'] as IconData,
+                        size: 22,
+                        color:
+                            active ? const Color(0xFFE8C547) : Colors.white30,
                       ),
-                    ),
-                  );
-                }).toList(),
+                      const SizedBox(height: 3),
+                      Text(
+                        item['label'] as String,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color:
+                              active ? const Color(0xFFE8C547) : Colors.white30,
+                          fontWeight:
+                              active ? FontWeight.w700 : FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ),
       ),
@@ -317,15 +315,13 @@ class _HomeScreenState extends State<HomeScreen> {
               keyboardType: TextInputType.number,
               style: const TextStyle(color: Colors.white, fontSize: 13),
               decoration: InputDecoration(
-                hintText:
-                    _kmSet
-                        ? 'Current: ${_formatKm(_currentKm)} km'
-                        : 'Enter current mileage (km)',
+                hintText: _kmSet
+                    ? 'Current: ${_formatKm(_currentKm)} km'
+                    : 'Enter current mileage (km)',
                 hintStyle: TextStyle(
-                  color:
-                      _kmSet
-                          ? const Color(0xFF4CAF50)
-                          : Colors.white.withValues(alpha: 0.25),
+                  color: _kmSet
+                      ? const Color(0xFF4CAF50)
+                      : Colors.white.withValues(alpha: 0.25),
                   fontSize: 12,
                 ),
                 border: InputBorder.none,
@@ -416,10 +412,9 @@ class _HomeScreenState extends State<HomeScreen> {
           )
         else
           StreamBuilder<QuerySnapshot>(
-            stream:
-                FirebaseFirestore.instance
-                    .collection('maintenance_schedule')
-                    .snapshots(),
+            stream: FirebaseFirestore.instance
+                .collection('maintenance_schedule')
+                .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
@@ -437,18 +432,13 @@ class _HomeScreenState extends State<HomeScreen> {
               }
 
               final allDocs = snapshot.data?.docs ?? [];
-
-              // Filter for user's car only
-              final docs =
-                  allDocs.where((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    final make =
-                        (data['carMake'] ?? '').toString().toLowerCase();
-                    final model =
-                        (data['carModel'] ?? '').toString().toLowerCase();
-                    return make == widget.carMake.toLowerCase() &&
-                        model == widget.carModel.toLowerCase();
-                  }).toList();
+              final docs = allDocs.where((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                final make = (data['carMake'] ?? '').toString().toLowerCase();
+                final model = (data['carModel'] ?? '').toString().toLowerCase();
+                return make == widget.carMake.toLowerCase() &&
+                    model == widget.carModel.toLowerCase();
+              }).toList();
 
               if (docs.isEmpty) {
                 return Container(
@@ -456,9 +446,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF16161F),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.06),
-                    ),
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.06)),
                   ),
                   child: Center(
                     child: Text(
@@ -473,7 +462,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
 
-              // Sort by most urgent first
               docs.sort((a, b) {
                 final aData = a.data() as Map<String, dynamic>;
                 final bData = b.data() as Map<String, dynamic>;
@@ -489,96 +477,89 @@ class _HomeScreenState extends State<HomeScreen> {
               });
 
               return Column(
-                children:
-                    docs.take(3).map((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      final task = data['task'] ?? 'Maintenance';
-                      final intervalKm = (data['intervalKm'] ?? 5000) as int;
-                      final lastDoneKm = (data['lastDoneKm'] ?? 0) as int;
-                      final status = _getStatus(intervalKm, lastDoneKm);
-                      final remaining = _getRemaining(intervalKm, lastDoneKm);
-                      final nextDueKm = lastDoneKm + intervalKm;
+                children: docs.take(3).map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final task = data['task'] ?? 'Maintenance';
+                  final intervalKm = (data['intervalKm'] ?? 5000) as int;
+                  final lastDoneKm = (data['lastDoneKm'] ?? 0) as int;
+                  final status = _getStatus(intervalKm, lastDoneKm);
+                  final remaining = _getRemaining(intervalKm, lastDoneKm);
+                  final nextDueKm = lastDoneKm + intervalKm;
 
-                      final statusColors = {
-                        'ok': Colors.white30,
-                        'due_soon': const Color(0xFFE8C547),
-                        'overdue': const Color(0xFFFF6B2B),
-                      };
-                      final color = statusColors[status] ?? Colors.white30;
-                      final iconData = _getIcon(data['icon'] ?? '');
+                  final statusColors = {
+                    'ok': Colors.white30,
+                    'due_soon': const Color(0xFFE8C547),
+                    'overdue': const Color(0xFFFF6B2B),
+                  };
+                  final color = statusColors[status] ?? Colors.white30;
+                  final iconData = _getIcon(data['icon'] ?? '');
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF16161F),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: color.withValues(alpha: 0.2),
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF16161F),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: color.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
                           ),
+                          child: Icon(iconData, color: color, size: 18),
                         ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: color.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(iconData, color: color, size: 18),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    task,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Next due at: ${_formatKm(nextDueKm)} km',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.35,
-                                      ),
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: color.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                status == 'overdue'
-                                    ? 'Overdue'
-                                    : status == 'due_soon'
-                                    ? 'Due Soon'
-                                    : '${_formatKm(remaining)} km',
-                                style: TextStyle(
-                                  color: color,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                task,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            ),
-                          ],
+                              Text(
+                                'Next due at: ${_formatKm(nextDueKm)} km',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.35),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      );
-                    }).toList(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            status == 'overdue'
+                                ? 'Overdue'
+                                : status == 'due_soon'
+                                    ? 'Due Soon'
+                                    : '${_formatKm(remaining)} km',
+                            style: TextStyle(
+                              color: color,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
               );
             },
           ),
@@ -607,8 +588,8 @@ class _HomeScreenState extends State<HomeScreen> {
         'tab': 3,
       },
       {
-        'label': 'Profile',
-        'icon': Icons.person_outline_rounded,
+        'label': 'Suppliers',
+        'icon': Icons.store_outlined,
         'color': const Color(0xFFFF6B2B),
         'tab': 4,
       },
@@ -626,48 +607,45 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
         Row(
-          children:
-              actions.asMap().entries.map((e) {
-                final a = e.value;
-                final isLast = e.key == actions.length - 1;
-                return Expanded(
-                  child: GestureDetector(
-                    onTap:
-                        () => setState(() => _currentIndex = a['tab'] as int),
-                    child: Container(
-                      margin: EdgeInsets.only(right: isLast ? 0 : 8),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF16161F),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.06),
+          children: actions.asMap().entries.map((e) {
+            final a = e.value;
+            final isLast = e.key == actions.length - 1;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _currentIndex = a['tab'] as int),
+                child: Container(
+                  margin: EdgeInsets.only(right: isLast ? 0 : 8),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF16161F),
+                    borderRadius: BorderRadius.circular(14),
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        a['icon'] as IconData,
+                        color: a['color'] as Color,
+                        size: 22,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        a['label'] as String,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
                         ),
                       ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            a['icon'] as IconData,
-                            color: a['color'] as Color,
-                            size: 22,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            a['label'] as String,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.7),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              height: 1.3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
-                );
-              }).toList(),
+                ),
+              ),
+            );
+          }).toList(),
         ),
       ],
     );
@@ -780,9 +758,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF16161F),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.06),
-                  ),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.06)),
                 ),
                 child: Row(
                   children: [
@@ -868,10 +845,13 @@ class _HomeScreenState extends State<HomeScreen> {
               'Notifications',
               'Maintenance reminders',
             ),
-            _profileOption(
-              Icons.location_on_outlined,
-              'Nearby Suppliers',
-              'Find parts & service kits',
+            GestureDetector(
+              onTap: () => setState(() => _currentIndex = 4),
+              child: _profileOption(
+                Icons.store_outlined,
+                'Nearby Suppliers',
+                'Find parts & service kits',
+              ),
             ),
             _profileOption(
               Icons.security_rounded,
