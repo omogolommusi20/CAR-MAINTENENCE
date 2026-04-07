@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'tutorials.dart';
 import 'maintenance_schedule.dart';
 import 'suppliers_screen.dart';
+import 'diagnose_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String userName;
@@ -79,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
         index: _currentIndex,
         children: [
           _buildDashboard(),
-          _buildSoundDiagnostics(),
+          const DiagnoseScreen(),
           TutorialsScreen(carMake: widget.carMake, carModel: widget.carModel),
           MaintenanceScheduleScreen(
             carMake: widget.carMake,
@@ -430,7 +431,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
                 );
               }
-
               final allDocs = snapshot.data?.docs ?? [];
               final docs = allDocs.where((doc) {
                 final data = doc.data() as Map<String, dynamic>;
@@ -485,7 +485,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   final status = _getStatus(intervalKm, lastDoneKm);
                   final remaining = _getRemaining(intervalKm, lastDoneKm);
                   final nextDueKm = lastDoneKm + intervalKm;
-
                   final statusColors = {
                     'ok': Colors.white30,
                     'due_soon': const Color(0xFFE8C547),
@@ -493,7 +492,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   };
                   final color = statusColors[status] ?? Colors.white30;
                   final iconData = _getIcon(data['icon'] ?? '');
-
                   return Container(
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(14),
@@ -518,14 +516,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                task,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              Text(task,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  )),
                               Text(
                                 'Next due at: ${_formatKm(nextDueKm)} km',
                                 style: TextStyle(
@@ -570,7 +566,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildQuickActions() {
     final actions = [
       {
-        'label': 'Sound\nDiagnose',
+        'label': 'Diagnose',
         'icon': Icons.mic_rounded,
         'color': const Color(0xFFE8C547),
         'tab': 1,
@@ -597,14 +593,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Quick Actions',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        const Text('Quick Actions',
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
         Row(
           children: actions.asMap().entries.map((e) {
@@ -624,11 +617,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Column(
                     children: [
-                      Icon(
-                        a['icon'] as IconData,
-                        color: a['color'] as Color,
-                        size: 22,
-                      ),
+                      Icon(a['icon'] as IconData,
+                          color: a['color'] as Color, size: 22),
                       const SizedBox(height: 6),
                       Text(
                         a['label'] as String,
@@ -651,138 +641,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSoundDiagnostics() {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            const Text(
-              'Sound Diagnostics',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            Text(
-              'Record your car\'s sound to detect faults',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.4),
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 30),
-            Center(
-              child: Column(
-                children: [
-                  Container(
-                    width: 140,
-                    height: 140,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF16161F),
-                      border: Border.all(
-                        color: const Color(0xFFE8C547).withValues(alpha: 0.3),
-                        width: 2,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.mic_rounded,
-                      color: Color(0xFFE8C547),
-                      size: 60,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Tap to Record',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Hold phone near the engine while idling',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.4),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 30),
-            const Text(
-              'Detectable Faults',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ...[
-              {
-                'fault': 'Engine Knock',
-                'icon': Icons.settings_rounded,
-                'color': const Color(0xFFFF6B2B),
-              },
-              {
-                'fault': 'Belt Squeal',
-                'icon': Icons.electric_bolt_rounded,
-                'color': const Color(0xFFE8C547),
-              },
-              {
-                'fault': 'Brake Screech',
-                'icon': Icons.album_rounded,
-                'color': const Color(0xFF2196F3),
-              },
-              {
-                'fault': 'Suspension Rattle',
-                'icon': Icons.car_repair_rounded,
-                'color': const Color(0xFF4CAF50),
-              },
-              {
-                'fault': 'Transmission Whine',
-                'icon': Icons.settings_input_component_rounded,
-                'color': const Color(0xFF9C27B0),
-              },
-            ].map(
-              (f) => Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF16161F),
-                  borderRadius: BorderRadius.circular(12),
-                  border:
-                      Border.all(color: Colors.white.withValues(alpha: 0.06)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      f['icon'] as IconData,
-                      color: f['color'] as Color,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      f['fault'] as String,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildProfile() {
     return SafeArea(
       child: SingleChildScrollView(
@@ -791,14 +649,11 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-            const Text(
-              'Profile',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            const Text('Profile',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700)),
             const SizedBox(height: 20),
             Center(
               child: Column(
@@ -814,55 +669,34 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 2,
                       ),
                     ),
-                    child: const Icon(
-                      Icons.person_rounded,
-                      color: Color(0xFFE8C547),
-                      size: 36,
-                    ),
+                    child: const Icon(Icons.person_rounded,
+                        color: Color(0xFFE8C547), size: 36),
                   ),
                   const SizedBox(height: 10),
-                  Text(
-                    widget.userName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                  Text(widget.userName,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700)),
                 ],
               ),
             ),
             const SizedBox(height: 24),
             _buildCarCard(),
             const SizedBox(height: 20),
-            _profileOption(
-              Icons.directions_car_rounded,
-              'My Vehicle',
-              'Manage car details',
-            ),
-            _profileOption(
-              Icons.notifications_outlined,
-              'Notifications',
-              'Maintenance reminders',
-            ),
+            _profileOption(Icons.directions_car_rounded, 'My Vehicle',
+                'Manage car details'),
+            _profileOption(Icons.notifications_outlined, 'Notifications',
+                'Maintenance reminders'),
             GestureDetector(
               onTap: () => setState(() => _currentIndex = 4),
-              child: _profileOption(
-                Icons.store_outlined,
-                'Nearby Suppliers',
-                'Find parts & service kits',
-              ),
+              child: _profileOption(Icons.store_outlined, 'Nearby Suppliers',
+                  'Find parts & service kits'),
             ),
-            _profileOption(
-              Icons.security_rounded,
-              'Privacy & Security',
-              'Account settings',
-            ),
-            _profileOption(
-              Icons.help_outline_rounded,
-              'Help & Support',
-              'FAQs and contact',
-            ),
+            _profileOption(Icons.security_rounded, 'Privacy & Security',
+                'Account settings'),
+            _profileOption(Icons.help_outline_rounded, 'Help & Support',
+                'FAQs and contact'),
             const SizedBox(height: 20),
           ],
         ),
@@ -887,29 +721,20 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.4),
-                    fontSize: 11,
-                  ),
-                ),
+                Text(title,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600)),
+                Text(subtitle,
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontSize: 11)),
               ],
             ),
           ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: Colors.white30,
-            size: 18,
-          ),
+          const Icon(Icons.chevron_right_rounded,
+              color: Colors.white30, size: 18),
         ],
       ),
     );
