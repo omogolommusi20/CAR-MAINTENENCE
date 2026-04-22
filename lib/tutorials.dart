@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 class TutorialsScreen extends StatefulWidget {
   final String carMake;
@@ -195,6 +196,7 @@ class _TutorialsScreenState extends State<TutorialsScreen> {
                     child: CircularProgressIndicator(color: Color(0xFFE8C547)),
                   );
                 }
+
                 if (snapshot.hasError) {
                   return Center(
                     child: Text(
@@ -207,6 +209,7 @@ class _TutorialsScreenState extends State<TutorialsScreen> {
                     ),
                   );
                 }
+
                 final allDocs = snapshot.data?.docs ?? [];
                 final docs = _applyClientFilter(allDocs);
 
@@ -354,6 +357,8 @@ class _TutorialsScreenState extends State<TutorialsScreen> {
     final engineType = data['engineType'] ?? '';
     final tools = _safeList(data['toolsNeeded']);
     final steps = _safeList(data['steps']);
+    final videoUrl = (data['videoUrl'] ?? '').toString();
+    final videoId = YoutubePlayer.convertUrlToId(videoUrl);
 
     final levelColors = {
       'Beginner': const Color(0xFF4CAF50),
@@ -401,6 +406,22 @@ class _TutorialsScreenState extends State<TutorialsScreen> {
           iconColor: const Color(0xFFE8C547),
           collapsedIconColor: Colors.white30,
           children: [
+            if (videoId != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: YoutubePlayer(
+                  controller: YoutubePlayerController(
+                    initialVideoId: videoId,
+                    flags: const YoutubePlayerFlags(
+                      autoPlay: false,
+                      mute: false,
+                    ),
+                  ),
+                  showVideoProgressIndicator: true,
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             if (tools.isNotEmpty) ...[
               Row(
                 children: [
@@ -424,36 +445,35 @@ class _TutorialsScreenState extends State<TutorialsScreen> {
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children:
-                    tools
-                        .map(
-                          (t) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(
-                                0xFFE8C547,
-                              ).withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: const Color(
-                                  0xFFE8C547,
-                                ).withValues(alpha: 0.2),
-                              ),
-                            ),
-                            child: Text(
-                              t,
-                              style: const TextStyle(
-                                color: Color(0xFFE8C547),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                children: tools
+                    .map(
+                      (t) => Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(
+                            0xFFE8C547,
+                          ).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(
+                              0xFFE8C547,
+                            ).withValues(alpha: 0.2),
                           ),
-                        )
-                        .toList(),
+                        ),
+                        child: Text(
+                          t,
+                          style: const TextStyle(
+                            color: Color(0xFFE8C547),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
               ),
               const SizedBox(height: 16),
             ],
@@ -478,43 +498,43 @@ class _TutorialsScreenState extends State<TutorialsScreen> {
               ),
               const SizedBox(height: 10),
               ...steps.asMap().entries.map(
-                (e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE8C547),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '${e.key + 1}',
-                          style: const TextStyle(
-                            color: Color(0xFF0A0A0F),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
+                    (e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8C547),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '${e.key + 1}',
+                              style: const TextStyle(
+                                color: Color(0xFF0A0A0F),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          e.value,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.8),
-                            fontSize: 13,
-                            height: 1.4,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              e.value,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontSize: 13,
+                                height: 1.4,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
             ],
           ],
         ),

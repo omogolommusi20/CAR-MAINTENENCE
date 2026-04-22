@@ -1,25 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'tutorials.dart';
 import 'maintenance_schedule.dart';
 import 'suppliers_screen.dart';
 import 'diagnose_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  final String userName;
-  final String carMake;
-  final String carModel;
-  final String carYear;
-  final String engineType;
-
-  const HomeScreen({
-    super.key,
-    required this.userName,
-    required this.carMake,
-    required this.carModel,
-    required this.carYear,
-    required this.engineType,
-  });
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -29,12 +18,76 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   int _currentKm = 0;
   bool _kmSet = false;
+  bool _isLoadingProfile = true;
+
   final _kmController = TextEditingController();
+
+  String _carMake = '';
+  String _carModel = '';
+  String _carYear = '';
+  String _engineType = '';
+  String _fullName = '';
+
+  User? get _user => FirebaseAuth.instance.currentUser;
+
+  String get _userName {
+    if (_fullName.isNotEmpty) return _fullName;
+    final email = _user?.displayName ?? _user?.email ?? 'User';
+    return email.contains('@') ? email.split('@').first : email;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
 
   @override
   void dispose() {
     _kmController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() {
+          _isLoadingProfile = false;
+        });
+        return;
+      }
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data()!;
+        setState(() {
+          _fullName = (data['fullName'] ?? '').toString();
+          _carMake = (data['carMake'] ?? '').toString();
+          _carModel = (data['carModel'] ?? '').toString();
+          _carYear = (data['carYear'] ?? '').toString();
+          _engineType = (data['engineType'] ?? '').toString();
+          _isLoadingProfile = false;
+        });
+      } else {
+        setState(() {
+          _isLoadingProfile = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingProfile = false;
+      });
+    }
+  }
+
+  Future<void> _logout() async {
+    await GoogleSignIn().signOut().catchError((_) {});
+    await FirebaseAuth.instance.signOut();
   }
 
   String _formatKm(int km) {
@@ -74,6 +127,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingProfile) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF0A0A0F),
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFFE8C547),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0F),
       body: IndexedStack(
@@ -81,10 +145,10 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _buildDashboard(),
           const DiagnoseScreen(),
-          TutorialsScreen(carMake: widget.carMake, carModel: widget.carModel),
+          TutorialsScreen(carMake: _carMake, carModel: _carModel),
           MaintenanceScheduleScreen(
-            carMake: widget.carMake,
-            carModel: widget.carModel,
+            carMake: _carMake,
+            carModel: _carModel,
           ),
           const SuppliersScreen(),
           _buildProfile(),
@@ -103,6 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {'icon': Icons.store_outlined, 'label': 'Suppliers'},
       {'icon': Icons.person_outline_rounded, 'label': 'Profile'},
     ];
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF12121A),
@@ -118,6 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
               final i = e.key;
               final item = e.value;
               final active = _currentIndex == i;
+
               return Expanded(
                 child: GestureDetector(
                   onTap: () => setState(() => _currentIndex = i),
@@ -185,7 +251,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Hello, ${widget.userName} 👋',
+              'Hello, $_userName 👋',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -254,7 +320,9 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${widget.carYear} ${widget.carMake} ${widget.carModel}',
+                  _carMake.isEmpty && _carModel.isEmpty
+                      ? 'No vehicle set yet'
+                      : '$_carYear $_carMake $_carModel',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -262,7 +330,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                _engineBadge(widget.engineType),
+                _engineBadge(_engineType.isEmpty ? 'Petrol' : _engineType),
               ],
             ),
           ),
@@ -278,7 +346,9 @@ class _HomeScreenState extends State<HomeScreen> {
       'Diesel': const Color(0xFFFF9800),
       'Petrol': const Color(0xFFE8C547),
     };
+
     final color = colors[type] ?? const Color(0xFFE8C547);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -364,6 +434,41 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildUpcomingMaintenance() {
+    if (_carMake.isEmpty || _carModel.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Upcoming Maintenance',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF16161F),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            ),
+            child: Center(
+              child: Text(
+                'No registered car details found',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.35),
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -425,19 +530,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               }
+
               if (snapshot.hasError) {
                 return Text(
                   'Error loading maintenance',
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
                 );
               }
+
               final allDocs = snapshot.data?.docs ?? [];
               final docs = allDocs.where((doc) {
                 final data = doc.data() as Map<String, dynamic>;
                 final make = (data['carMake'] ?? '').toString().toLowerCase();
                 final model = (data['carModel'] ?? '').toString().toLowerCase();
-                return make == widget.carMake.toLowerCase() &&
-                    model == widget.carModel.toLowerCase();
+                return make == _carMake.toLowerCase() &&
+                    model == _carModel.toLowerCase();
               }).toList();
 
               if (docs.isEmpty) {
@@ -451,7 +558,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Center(
                     child: Text(
-                      'No schedule found for\n${widget.carMake} ${widget.carModel}',
+                      'No schedule found for\n$_carMake $_carModel',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.4),
@@ -485,13 +592,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   final status = _getStatus(intervalKm, lastDoneKm);
                   final remaining = _getRemaining(intervalKm, lastDoneKm);
                   final nextDueKm = lastDoneKm + intervalKm;
+
                   final statusColors = {
                     'ok': Colors.white30,
                     'due_soon': const Color(0xFFE8C547),
                     'overdue': const Color(0xFFFF6B2B),
                   };
+
                   final color = statusColors[status] ?? Colors.white30;
                   final iconData = _getIcon(data['icon'] ?? '');
+
                   return Container(
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(14),
@@ -516,12 +626,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(task,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  )),
+                              Text(
+                                task,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                               Text(
                                 'Next due at: ${_formatKm(nextDueKm)} km',
                                 style: TextStyle(
@@ -534,7 +646,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: color.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
@@ -590,19 +704,24 @@ class _HomeScreenState extends State<HomeScreen> {
         'tab': 4,
       },
     ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Quick Actions',
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w700)),
+        const Text(
+          'Quick Actions',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         const SizedBox(height: 12),
         Row(
           children: actions.asMap().entries.map((e) {
             final a = e.value;
             final isLast = e.key == actions.length - 1;
+
             return Expanded(
               child: GestureDetector(
                 onTap: () => setState(() => _currentIndex = a['tab'] as int),
@@ -617,8 +736,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Column(
                     children: [
-                      Icon(a['icon'] as IconData,
-                          color: a['color'] as Color, size: 22),
+                      Icon(
+                        a['icon'] as IconData,
+                        color: a['color'] as Color,
+                        size: 22,
+                      ),
                       const SizedBox(height: 6),
                       Text(
                         a['label'] as String,
@@ -649,11 +771,14 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-            const Text('Profile',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700)),
+            const Text(
+              'Profile',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 20),
             Center(
               child: Column(
@@ -669,34 +794,64 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 2,
                       ),
                     ),
-                    child: const Icon(Icons.person_rounded,
-                        color: Color(0xFFE8C547), size: 36),
+                    child: const Icon(
+                      Icons.person_rounded,
+                      color: Color(0xFFE8C547),
+                      size: 36,
+                    ),
                   ),
                   const SizedBox(height: 10),
-                  Text(widget.userName,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700)),
+                  Text(
+                    _userName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _user?.email ?? '',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.45),
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
             _buildCarCard(),
             const SizedBox(height: 20),
-            _profileOption(Icons.directions_car_rounded, 'My Vehicle',
-                'Manage car details'),
-            _profileOption(Icons.notifications_outlined, 'Notifications',
-                'Maintenance reminders'),
+            _profileOption(
+              Icons.directions_car_rounded,
+              'My Vehicle',
+              _carMake.isEmpty && _carModel.isEmpty
+                  ? 'No car details saved'
+                  : '$_carYear $_carMake $_carModel',
+            ),
             GestureDetector(
               onTap: () => setState(() => _currentIndex = 4),
-              child: _profileOption(Icons.store_outlined, 'Nearby Suppliers',
-                  'Find parts & service kits'),
+              child: _profileOption(
+                Icons.store_outlined,
+                'Nearby Suppliers',
+                'Find parts & service kits',
+              ),
             ),
-            _profileOption(Icons.security_rounded, 'Privacy & Security',
-                'Account settings'),
-            _profileOption(Icons.help_outline_rounded, 'Help & Support',
-                'FAQs and contact'),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _logout,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6B2B),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                icon: const Icon(Icons.logout),
+                label: const Text('Log Out'),
+              ),
+            ),
             const SizedBox(height: 20),
           ],
         ),
@@ -721,20 +876,29 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600)),
-                Text(subtitle,
-                    style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.4),
-                        fontSize: 11)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.4),
+                    fontSize: 11,
+                  ),
+                ),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded,
-              color: Colors.white30, size: 18),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: Colors.white30,
+            size: 18,
+          ),
         ],
       ),
     );
