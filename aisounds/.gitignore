@@ -1,0 +1,8 @@
+car sounds/
+car parts/
+*.npy
+*.pkl
+*.keras
+*.h5
+venv/
+__pycache__/
